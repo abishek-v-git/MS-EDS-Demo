@@ -1,0 +1,61 @@
+{# Full record form: every topic's input fields, grouped like the tab strip. Used for edit and create. #}
+<form class="pv-form" data-record-form data-url="{{ action }}" novalidate>
+    {% csrf_token %}
+    {% if not group or errors %}{# group mode: the record picker above already names the record #}
+    <div class="pv-rec-head">
+        {% if not group %}
+        <div>
+            <div class="pv-rec-id">{% if record.pk %}{{ record.eds_record_id }}{% else %}New EDS record{% endif %}</div>
+            <div class="pv-rec-sub">
+                {% if record.pk %}Editing all sections · generated fields stay as they are{% else %}EDS Record ID, rack / platform IDs, gate, owner and dates are generated on save · the other sections are filled in from their tabs once the record exists{% endif %}
+            </div>
+        </div>
+        {% endif %}
+        {% if errors %}
+        <div class="alert alert-danger py-1 px-2 small mb-0"><i class="bi bi-exclamation-triangle me-1"></i>Fix the highlighted fields ({{ errors }}).</div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% for g in groups %}
+    <section class="pv-group">
+        <h6 class="pv-group-title">{{ g.name }}</h6>
+        {% for sec in g.sections %}
+        <fieldset class="pv-section" style="--accent-src: {{ sec.topic.accent }};">
+            <legend class="pv-legend">
+                <span class="pv-legend-icon"><i class="bi {{ sec.topic.icon }}"></i></span>
+                {{ sec.topic.title }}
+            </legend>
+            {% if sec.auto %}
+            <div class="edit-auto">
+                {% for label, value in sec.auto %}
+                <div class="edit-auto-item">
+                    <span class="edit-auto-label"><i class="bi bi-magic me-1"></i>{{ label }}</span>
+                    <span class="edit-auto-value">{{ value|default:"generated on save" }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            {% if sec.form.non_field_errors %}
+            <div class="alert alert-danger py-2 small">{{ sec.form.non_field_errors|join:" " }}</div>
+            {% endif %}
+            <div class="row g-2">
+                {% for field in sec.form %}
+                {% if field.name == sec.topic.monthly_field %}
+                {% include "core/_month_field.html" %}
+                {% else %}
+                <div class="{% if field.name in sec.topic.expandable_fields %}col-12{% else %}col-sm-6 col-lg-4{% endif %}">
+                    <label class="pv-label" for="{{ field.id_for_label }}">
+                        {{ field.label }}{% if field.name == "demand_line_id" %} <span class="text-danger" title="Required">*</span>{% endif %}
+                    </label>
+                    {{ field }}
+                    {% for err in field.errors %}<div class="invalid-feedback d-block">{{ err }}</div>{% endfor %}
+                </div>
+                {% endif %}
+                {% endfor %}
+            </div>
+        </fieldset>
+        {% endfor %}
+    </section>
+    {% endfor %}
+</form>

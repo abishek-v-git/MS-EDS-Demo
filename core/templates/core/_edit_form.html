@@ -1,0 +1,29 @@
+{% csrf_token %}
+{% if auto %}
+<div class="edit-auto">
+    {% for label, value in auto %}
+    <div class="edit-auto-item">
+        <span class="edit-auto-label"><i class="bi bi-magic me-1"></i>{{ label }}</span>
+        <span class="edit-auto-value">{{ value|default:"—" }}</span>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if form.non_field_errors %}
+<div class="alert alert-danger py-2 small">{{ form.non_field_errors|join:" " }}</div>
+{% endif %}
+
+<div class="row g-3">
+    {% for field in form %}
+    {% if field.name == monthly_field %}
+    {% include "core/_month_field.html" %}
+    {% else %}
+    <div class="{% if field.name in wide %}col-12{% else %}col-md-6{% endif %}">
+        <label class="form-label edit-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% for err in field.errors %}<div class="invalid-feedback d-block">{{ err }}</div>{% endfor %}
+    </div>
+    {% endif %}
+    {% endfor %}
+</div>

@@ -1,0 +1,165 @@
+{% extends "core/base.html" %}
+{% load static %}
+
+{% block title %}Change history · ms-eds-demo{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div class="topic-header">
+        <div class="topic-icon"><i class="bi bi-clock-history"></i></div>
+        <div>
+            <div class="topic-kicker">Audit trail</div>
+            <h1 class="topic-title">Change history</h1>
+        </div>
+    </div>
+    <div class="page-meta">
+        <span><b>{{ total_activities }}</b> activit{{ total_activities|pluralize:"y,ies" }}</span>
+        <span><b>{{ total_changes }}</b> field change{{ total_changes|pluralize }}</span>
+        <span><b>{{ people|length }}</b> {{ people|length|pluralize:"person,people" }}</span>
+    </div>
+</div>
+
+<!-- Filters: a plain GET form, so every view is a shareable link -->
+<form class="hist-filters" method="get" id="histFilters">
+    <div class="hist-kinds" role="group" aria-label="Type">
+        <label class="hist-kind {% if not filters.kind %}active{% endif %}">
+            <input type="radio" name="kind" value="" {% if not filters.kind %}checked{% endif %}>All
+        </label>
+        {% for key, label, count, icon, tone in kinds %}
+        <label class="hist-kind tone-{{ tone }} {% if filters.kind == key %}active{% endif %}">
+            <input type="radio" name="kind" value="{{ key }}" {% if filters.kind == key %}checked{% endif %}>
+            <i class="bi {{ icon }}"></i>{{ label }}<span class="hist-kind-n">{{ count }}</span>
+        </label>
+        {% endfor %}
+    </div>
+    <div class="hist-filter-row">
+        <div class="hist-search">
+            <i class="bi bi-search"></i>
+            <input type="search" name="q" value="{{ filters.q }}" placeholder="Record ID, program, field, value or file name" aria-label="Search changes">
+        </div>
+        <select name="user" class="form-select form-select-sm" aria-label="Person">
+            <option value="">Everyone</option>
+            {% for p in people %}<option value="{{ p }}" {% if filters.user == p %}selected{% endif %}>{{ p }}</option>{% endfor %}
+        </select>
+        <select name="section" class="form-select form-select-sm" aria-label="Section">
+            <option value="">All sections</option>
+            {% for t in sections %}<option value="{{ t.label }}" {% if filters.section == t.label %}selected{% endif %}>{{ t.title }}</option>{% endfor %}
+        </select>
+        {% if filtered %}<a class="btn btn-sm btn-ghost" href="{% url 'history' %}"><i class="bi bi-x-lg me-1"></i>Clear</a>{% endif %}
+    </div>
+</form>
+
+{% if days %}
+<div class="hist-timeline">
+    {% for day in days %}
+    <section class="hist-day">
+        <h2 class="hist-day-title">
+            {% if day.label %}{{ day.label }} <span>{{ day.date|date:"j M Y" }}</span>{% else %}{{ day.date|date:"l, j M Y" }}{% endif %}
+        </h2>
+        {% for a in day.items %}
+        <article class="hist-item tone-{{ a.tone }}" data-url="{% url 'history_changes' a.pk %}{% if narrowed %}?{{ query }}{% endif %}">
+            <span class="hist-icon"><i class="bi {{ a.icon }}"></i></span>
+            <div class="hist-body">
+                <div class="hist-top">
+                    <div class="hist-summary">{{ a.summary }}</div>
+                    <time class="hist-time" datetime="{{ a.at|date:'c' }}" title="{{ a.at|date:'j M Y, H:i:s' }}">{{ a.at|date:"H:i" }}</time>
+                </div>
+                <div class="hist-meta">
+                    <span class="hist-who"><span class="hist-avatar">{{ a.username|default:"?"|first|upper }}</span>{{ a.username|default:"Unknown user" }}</span>
+                    <span class="hist-kind-tag">{{ a.get_kind_display }}</span>
+                    {% if a.record_count %}<span>{{ a.record_count }} record{{ a.record_count|pluralize }}</span>{% endif %}
+                    {% if a.change_count %}<span>{{ a.change_count }} field change{{ a.change_count|pluralize }}</span>{% endif %}
+                    {% if narrowed and a.matches %}<span class="hist-match">{{ a.matches }} match{{ a.matches|pluralize:"es" }}</span>{% endif %}
+                </div>
+                {% if a.details.files or a.section_topics %}
+                <div class="hist-tags">
+                    {% for f in a.details.files %}<span class="hist-file"><i class="bi bi-file-earmark-spreadsheet"></i>{{ f }}</span>{% endfor %}
+                    {% for t in a.section_topics %}<span class="hist-sec" style="--sec: {{ t.accent }};"><i></i>{{ t.title }}</span>{% endfor %}
+                </div>
+                {% endif %}
+                {% if a.kind == "import" and a.details.conflicts %}
+                <div class="hist-note"><i class="bi bi-exclamation-triangle"></i>{{ a.details.conflicts }} value{{ a.details.conflicts|pluralize }} differed between files; the later file was kept.</div>
+                {% endif %}
+                {% if a.change_count %}
+                <button type="button" class="hist-toggle" aria-expanded="false">
+                    <i class="bi bi-chevron-right"></i><span>Show changes</span>
+                </button>
+                <div class="hist-changes" hidden></div>
+                {% elif a.kind == "import" %}
+                <div class="hist-quiet">No values changed: every row matched what was already stored.</div>
+                {% endif %}
+            </div>
+        </article>
+        {% endfor %}
+    </section>
+    {% endfor %}
+</div>
+
+{% if page.paginator.num_pages > 1 %}
+<nav class="hist-pager" aria-label="Pages">
+    {% if page.has_previous %}<a class="btn btn-sm btn-ghost" href="?{{ query }}{% if query %}&{% endif %}page={{ page.previous_page_number }}"><i class="bi bi-arrow-left me-1"></i>Newer</a>{% endif %}
+    <span>Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
+    {% if page.has_next %}<a class="btn btn-sm btn-ghost" href="?{{ query }}{% if query %}&{% endif %}page={{ page.next_page_number }}">Older<i class="bi bi-arrow-right ms-1"></i></a>{% endif %}
+</nav>
+{% endif %}
+
+{% else %}
+<div class="empty-state">
+    <i class="bi bi-clock-history"></i>
+    {% if filtered %}
+    <h2>No changes match these filters</h2>
+    <p>Try another person, section or search term.</p>
+    <a class="btn btn-outline-secondary" href="{% url 'history' %}">Show all changes</a>
+    {% else %}
+    <h2>No changes recorded yet</h2>
+    <p>Imports, edits, new records and Clear all data will appear here, with every field's old and new value.</p>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    // Filters apply as soon as they change (search: on Enter or after a pause).
+    const form = document.getElementById('histFilters');
+    form.querySelectorAll('input[type=radio], select').forEach((el) => el.addEventListener('change', () => form.submit()));
+    const search = form.querySelector('input[name=q]');
+    let timer;
+    search.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(() => form.submit(), 700); });
+    if (search.value) { search.focus(); search.setSelectionRange(search.value.length, search.value.length); }
+
+    // Changes load when an activity is opened; "show more" appends the next records.
+    async function load(box, url, append) {
+        const res = await fetch(url, { headers: { 'X-Requested-With': 'fetch' } });
+        const html = await res.text();
+        if (append) box.querySelector('.hist-more')?.remove();
+        box.insertAdjacentHTML(append ? 'beforeend' : 'afterbegin', html);
+    }
+    document.addEventListener('click', async (e) => {
+        const toggle = e.target.closest('.hist-toggle');
+        if (toggle) {
+            const item = toggle.closest('.hist-item');
+            const box = item.querySelector('.hist-changes');
+            const open = toggle.getAttribute('aria-expanded') !== 'true';
+            toggle.setAttribute('aria-expanded', open);
+            toggle.querySelector('span').textContent = open ? 'Hide changes' : 'Show changes';
+            box.hidden = !open;
+            if (open && !box.dataset.loaded) {
+                box.dataset.loaded = '1';
+                box.innerHTML = '<div class="hist-loading"><span class="spinner-border spinner-border-sm"></span>Loading changes…</div>';
+                await load(box, item.dataset.url, false);
+                box.querySelector('.hist-loading')?.remove();
+            }
+            return;
+        }
+        const more = e.target.closest('.hist-more');
+        if (more) {
+            more.disabled = true;
+            more.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Loading…';
+            await load(more.closest('.hist-changes'), more.dataset.url, true);
+        }
+    });
+})();
+</script>
+{% endblock %}

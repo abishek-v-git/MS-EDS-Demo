@@ -1,0 +1,26 @@
+{# Section info cards (core/insights.py). Re-rendered into #insightCards whenever the table reloads. #}
+{% for c in cards %}
+<div class="insight{% if c.tone %} is-{{ c.tone }}{% endif %}">
+    <div class="insight-head">
+        <span class="insight-label">{{ c.label }}</span>
+        {% if c.icon %}<span class="insight-icon"><i class="bi {{ c.icon }}"></i></span>{% endif %}
+    </div>
+    <div class="insight-value">
+        {{ c.value }}{% if c.of %}<span class="insight-of">/ {{ c.of }}</span>{% endif %}
+        {% if c.pct is not None %}<span class="insight-pct">{{ c.pct }}%</span>{% endif %}
+    </div>
+    {% if c.meter is not None %}
+    <div class="insight-meter" role="img" aria-label="{{ c.pct }}%"><span style="width: {{ c.meter }}%"></span></div>
+    {% endif %}
+    {% if c.segments %}
+    <div class="insight-seg" role="img" aria-label="{% for s in c.segments %}{{ s.label }} {{ s.count }}{% if not forloop.last %}, {% endif %}{% endfor %}">
+        {% for s in c.segments %}<span class="seg-{{ s.cls }}" style="flex: {{ s.count }}" title="{{ s.label }}: {{ s.count }}"></span>{% endfor %}
+    </div>
+    <div class="insight-legend">
+        {% for s in c.segments %}<span><i class="seg-{{ s.cls }}"></i>{{ s.label }} <b>{{ s.count }}</b></span>{% endfor %}
+    </div>
+    {% elif c.sub %}
+    <div class="insight-sub">{{ c.sub }}</div>
+    {% endif %}
+</div>
+{% endfor %}

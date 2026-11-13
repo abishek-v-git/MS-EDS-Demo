@@ -1,0 +1,80 @@
+{# Bulk upload preview: what an import of the selected files would do. Nothing is saved yet. #}
+{% if batch.rejected %}
+<div class="alert alert-danger py-2 small mb-2">
+    <strong><i class="bi bi-x-octagon me-1"></i>Nothing will be imported.</strong>
+    {{ batch.rejected|length }} file{{ batch.rejected|length|pluralize }} could not be read.
+    Fix {{ batch.rejected|length|pluralize:"it,them" }} and upload the same set again.
+    <ul class="mb-0 mt-1">
+        {% for name, why in batch.rejected %}<li><strong>{{ name }}</strong>: {{ why }}</li>{% endfor %}
+    </ul>
+</div>
+{% elif not batch.files %}
+<div class="alert alert-warning py-2 small mb-2">No Excel files to import.</div>
+{% else %}
+<div class="preview-totals">
+    <span><strong>{{ batch.created }}</strong> new</span>
+    <span><strong>{{ batch.updated }}</strong> updated</span>
+    <span><strong>{{ batch.unchanged }}</strong> unchanged</span>
+    {% if conflicts %}<span class="text-warning-emphasis"><strong>{{ batch.conflicts|length }}</strong> conflict{{ batch.conflicts|length|pluralize }}</span>{% endif %}
+</div>
+<p class="small text-muted mb-2">Nothing is saved until you click <strong>Confirm import</strong>.
+    Files are applied top to bottom (filename order); where two files differ, the lower one wins.
+    Unchanged records keep their review date.</p>
+{% endif %}
+
+{% if files %}
+<table class="table table-sm small preview-files mb-2">
+    <thead><tr><th>#</th><th>File</th><th class="text-end">Rows</th><th class="text-end">New</th><th class="text-end">Updated</th><th class="text-end">Unchanged</th></tr></thead>
+    <tbody>
+    {% for pf, notes in files %}
+        <tr>
+            <td>{{ forloop.counter }}</td>
+            <td>
+                <span class="fw-semibold">{{ pf.name }}</span>
+                <span class="text-muted">· sheet "{{ pf.result.sheet }}" · {{ pf.result.matched_columns }}/{{ pf.result.expected_columns }} columns</span>
+                {% if notes %}
+                <details class="preview-notes"><summary>{{ notes|length }} warning{{ notes|length|pluralize }}</summary>
+                    <ul>{% for n in notes %}<li>{{ n }}</li>{% endfor %}</ul>
+                </details>
+                {% endif %}
+            </td>
+            <td class="text-end">{{ pf.result.rows_read }}</td>
+            {% if batch.rejected %}<td class="text-end text-muted" colspan="3">not checked</td>
+            {% else %}
+            <td class="text-end">{{ pf.result.created }}</td>
+            <td class="text-end">{{ pf.result.updated }}</td>
+            <td class="text-end">{{ pf.result.unchanged }}</td>
+            {% endif %}
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+<p class="small text-muted mb-2">A demand line that appears in several files is counted in each of them.</p>
+{% endif %}
+
+{% if conflicts %}
+<details class="preview-conflicts" open>
+    <summary class="small fw-semibold">Values that differ between files ({{ batch.conflicts|length }})</summary>
+    <table class="table table-sm small mb-1">
+        <thead><tr><th>Demand-line ID</th><th>Column</th><th>Earlier file</th><th>Kept (later file)</th></tr></thead>
+        <tbody>
+        {% for c in conflicts %}
+            <tr>
+                <td>{{ c.key }}</td>
+                <td>{{ c.column }}</td>
+                <td><span class="text-decoration-line-through">{{ c.earlier_value }}</span> <span class="text-muted">· {{ c.earlier_file }}</span></td>
+                <td><strong>{{ c.later_value }}</strong> <span class="text-muted">· {{ c.later_file }}</span></td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% if more_conflicts %}<p class="small text-muted mb-1">… and {{ more_conflicts }} more.</p>{% endif %}
+    <p class="small text-muted mb-0">Wrong value winning? Rename the files so they sort in the order you want, or leave one out.</p>
+</details>
+{% endif %}
+
+{% if batch.ignored %}
+<div class="small text-muted mt-2"><i class="bi bi-info-circle me-1"></i>Ignored:
+    {% for name, why in batch.ignored %}<span class="d-block ms-3">{{ name }}: {{ why }}</span>{% endfor %}
+</div>
+{% endif %}

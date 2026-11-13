@@ -1,0 +1,279 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% include "core/_head.html" %}
+    <title>{% block title %}MS-EDS-Demo{% endblock %}</title>
+    {% block head %}{% endblock %}
+    <link href="{% static 'core/app.css' %}" rel="stylesheet">
+</head>
+<body {% block body_attrs %}{% endblock %}>
+
+<div class="app-shell">
+    <!-- Sidebar: section navigation, grouped by stage -->
+    <aside class="app-sidebar" id="appSidebar">
+        <button type="button" class="sb-collapse" id="sbCollapse" aria-controls="appSidebar" aria-expanded="true"
+                title="Collapse sidebar" aria-label="Collapse sidebar"><i class="bi bi-chevron-left"></i></button>
+        <a class="sb-brand" href="{% url 'home' %}" title="MS-EDS">
+            <span class="brand-mark"><i class="bi bi-hdd-rack"></i></span>
+            <span class="sb-brand-text">
+                <span class="sb-brand-name">MS-EDS</span>
+                <span class="sb-brand-sub">Demand records</span>
+            </span>
+        </a>
+        <nav class="sb-nav" aria-label="Sections">
+            {% for group_name, group_topics in topic_groups %}
+            <div class="sb-group">
+                {% if group_name %}<div class="sb-group-label">{{ group_name }}</div>{% endif %}
+                {% for t in group_topics %}
+                <a class="sb-link {% if topic and topic.label == t.label %}active{% endif %}"
+                   href="{{ t.url }}" style="--tab-accent: {{ t.accent }};" title="{{ t.title }}"
+                   {% if topic and topic.label == t.label %}aria-current="page"{% endif %}>
+                    <span class="sb-icon"><i class="bi {{ t.icon }}"></i></span>
+                    <span class="sb-title">{{ t.title }}</span>
+                </a>
+                {% endfor %}
+            </div>
+            {% endfor %}
+        </nav>
+        {% if last_upload %}
+        <div class="sb-foot" title="Last import">
+            <i class="bi bi-clock-history"></i>
+            <div class="min-w-0">
+                <div class="sb-foot-label">Last import</div>
+                <div class="sb-foot-file">{{ last_upload.file_name }}</div>
+                <div class="sb-foot-date">{{ last_upload.uploaded_at|date:"d M Y, H:i" }}</div>
+            </div>
+        </div>
+        {% endif %}
+        {% if eds_total or last_upload %}
+        <button type="button" class="sb-danger" data-bs-toggle="modal" data-bs-target="#resetModal" title="Clear all data">
+            <i class="bi bi-trash3"></i>Clear all data
+        </button>
+        {% endif %}
+        <div class="sb-user">
+            <span class="sb-avatar" aria-hidden="true" title="{% firstof user.get_full_name user.get_username %}">{{ user.get_username|first|upper }}</span>
+            <div class="min-w-0">
+                <div class="sb-user-name">{% firstof user.get_full_name user.get_username %}</div>
+                <div class="sb-user-role">{% if user.is_superuser %}Administrator{% else %}Signed in{% endif %}</div>
+            </div>
+            <form method="post" action="{% url 'logout' %}">
+                {% csrf_token %}
+                <button type="submit" class="sb-signout" title="Sign out" aria-label="Sign out"><i class="bi bi-box-arrow-right"></i></button>
+            </form>
+        </div>
+    </aside>
+    <div class="sb-backdrop" id="sbBackdrop"></div>
+
+    <div class="app-main">
+        <header class="app-topbar">
+            <button type="button" class="tb-menu" id="sbToggle" aria-label="Open navigation" aria-controls="appSidebar">
+                <i class="bi bi-list"></i>
+            </button>
+            <!-- Master search: column names and values across every section -->
+            <div class="master-search" id="masterSearch" data-url="{% url 'master_search' %}">
+                <i class="bi bi-search ms-icon"></i>
+                <input type="search" id="masterSearchInput" class="ms-input" autocomplete="off" spellcheck="false"
+                       placeholder="Search columns and values…" aria-label="Search columns and values"
+                       role="combobox" aria-expanded="false" aria-controls="masterSearchResults">
+                <kbd class="ms-kbd" title="Press / to search">/</kbd>
+                <div class="ms-results" id="masterSearchResults" role="listbox" hidden></div>
+            </div>
+            <div class="nav-actions">
+                <button type="button" class="theme-toggle" id="themeToggle" title="Switch light / dark theme" aria-label="Switch light / dark theme">
+                    <i class="bi bi-moon-stars theme-ico-dark"></i>
+                    <i class="bi bi-sun theme-ico-light"></i>
+                </button>
+                <a class="btn btn-sm btn-ghost {% if request.resolver_match.url_name == 'history' %}is-active{% endif %}" href="{% url 'history' %}" title="Every change: imports, edits, new records">
+                    <i class="bi bi-clock-history me-1"></i><span class="d-none d-md-inline">History</span>
+                </a>
+                <a class="btn btn-sm btn-ghost" href="{% url 'export_all' %}" title="Export all sections (all columns) to Excel">
+                    <i class="bi bi-box-arrow-up me-1"></i><span class="d-none d-md-inline">Export all</span>
+                </a>
+                <button class="btn btn-sm btn-primary app-btn" data-bs-toggle="modal" data-bs-target="#uploadModal">
+                    <i class="bi bi-cloud-arrow-up me-1"></i><span class="d-none d-sm-inline">Upload Excel</span>
+                </button>
+            </div>
+        </header>
+
+        <main class="app-content">
+            {% for msg in messages %}
+            <div class="alert alert-{% if msg.tags == 'error' %}danger{% else %}{{ msg.tags }}{% endif %} alert-dismissible fade show py-2 small" role="alert">
+                {{ msg }}
+                <button type="button" class="btn-close btn-sm" data-bs-dismiss="alert"></button>
+            </div>
+            {% endfor %}
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+</div>
+
+<!-- Upload modal -->
+<div class="modal fade" id="uploadModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+        <form class="modal-content" method="post" action="{% url 'upload' %}" enctype="multipart/form-data" id="uploadForm">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.path }}">
+            <div class="modal-header app-modal-header">
+                <h6 class="modal-title"><i class="bi bi-file-earmark-spreadsheet me-2"></i>Upload EDS Excel files</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="uploadPick">
+                <label class="drop-zone" for="fileInput" id="dropZone">
+                    <i class="bi bi-cloud-arrow-up"></i>
+                    <span class="dz-title">Drop one or more .xlsx files here or click to browse</span>
+                    <span class="dz-file text-primary fw-semibold" id="fileName"></span>
+                </label>
+                <input type="file" name="files" id="fileInput" accept=".xlsx,.xlsm" class="d-none" multiple>
+                <div class="text-danger small mt-2 d-none" id="uploadError"></div>
+                <ul class="upload-notes">
+                    <li>Several files are imported <strong>together or not at all</strong>: if one can't be read, nothing is saved.
+                        You see a preview before anything is saved.</li>
+                    <li>Files are applied in <strong>filename order</strong> (prefix them 01_, 02_ …); where two files give a
+                        different value for the same demand line, the later file wins and the preview lists it.</li>
+                    <li>Columns are matched by header name; order doesn't matter.</li>
+                    <li>Rows are keyed on <strong>Demand-line ID</strong>. Existing demand lines are updated, new ones get a new EDS record.</li>
+                    <li>EDS Record ID, Current gate, Record owner and backup, Created / Refreshed / Review dates,
+                        Rack configuration ID and Platform SKU/MDM ID are <strong>generated by the system</strong>; leave them out of the file.</li>
+                    <li>Only the columns in your file are overwritten.</li>
+                    <li>Monthly profile is one column per month (e.g. <em>Nov 2026</em>): just type the quantity. Blank month = none.</li>
+                </ul>
+                </div>
+                <div id="uploadPreview" class="d-none"></div>
+            </div>
+            <div class="modal-footer justify-content-between">
+                <a href="{% url 'download_template' %}" class="btn btn-sm btn-link px-0">
+                    <i class="bi bi-download me-1"></i>Download blank template
+                </a>
+                <div>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary d-none" id="uploadBackBtn">
+                        <i class="bi bi-arrow-left me-1"></i>Choose other files
+                    </button>
+                    <button type="submit" class="btn btn-sm btn-primary app-btn" id="uploadBtn">
+                        <i class="bi bi-search me-1"></i>Check files
+                    </button>
+                    <button type="button" class="btn btn-sm btn-primary app-btn d-none" id="uploadConfirmBtn">
+                        <i class="bi bi-upload me-1"></i>Confirm import
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Clear all data: deletes every EDS record and the import history -->
+<div class="modal fade" id="resetModal" tabindex="-1" aria-hidden="true" aria-labelledby="resetModalTitle">
+    <div class="modal-dialog modal-dialog-centered">
+        <form class="modal-content" method="post" action="{% url 'reset_data' %}" id="resetForm">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.path }}">
+            <div class="modal-header app-modal-header">
+                <h6 class="modal-title" id="resetModalTitle"><i class="bi bi-exclamation-octagon me-2 text-danger"></i>Clear all data?</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-2">This permanently deletes:</p>
+                <ul class="reset-list">
+                    <li><strong>{{ eds_total }}</strong> EDS record{{ eds_total|pluralize }} and their data in all seven sections, including edits made in the app</li>
+                    <li>The import history{% if last_upload %} (last: {{ last_upload.file_name }}){% endif %}</li>
+                </ul>
+                <p class="small text-muted mb-3">New records will start again at EDS-000001. This can't be undone;
+                    use <a href="{% url 'export_all' %}">Export all</a> first if you might need the data.</p>
+                <label class="form-label small fw-semibold mb-1" for="resetConfirm">Type <code>DELETE</code> to confirm</label>
+                <input type="text" class="form-control" name="confirm" id="resetConfirm" autocomplete="off" spellcheck="false">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-sm btn-ghost" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-sm btn-danger" id="resetSubmit" disabled>
+                    <i class="bi bi-trash3 me-1"></i>Delete everything
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    // Session expired: background requests get a 401; reloading the page goes to the login page.
+    (function () {
+        const fetch0 = window.fetch;
+        window.fetch = (...args) => fetch0(...args).then((r) => {
+            if (r.status === 401) location.reload();
+            return r;
+        });
+    })();
+</script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="{% static 'core/upload.js' %}"></script>
+<script src="{% static 'core/master_search.js' %}"></script>
+<script>
+    // Small screens: the sidebar slides in over the page.
+    (function () {
+        const sb = document.getElementById('appSidebar');
+        const toggle = (open) => document.body.classList.toggle('sb-open', open);
+        document.getElementById('sbToggle').addEventListener('click', () => toggle(!document.body.classList.contains('sb-open')));
+        document.getElementById('sbBackdrop').addEventListener('click', () => toggle(false));
+        document.addEventListener('keydown', (e) => { if (e.key === 'Escape') toggle(false); });
+
+        // Wide screens: collapse to an icon strip (remembered). Ctrl+B toggles too.
+        const root = document.documentElement;
+        const btn = document.getElementById('sbCollapse');
+        const sync = () => {
+            const collapsed = root.classList.contains('sb-collapsed');
+            const label = collapsed ? 'Expand sidebar' : 'Collapse sidebar';
+            btn.setAttribute('aria-expanded', String(!collapsed));
+            btn.title = label + ' (Ctrl+B)';
+            btn.setAttribute('aria-label', label);
+        };
+        const collapse = () => {
+            const collapsed = root.classList.toggle('sb-collapsed');
+            try { localStorage.setItem('eds-sidebar', collapsed ? 'collapsed' : 'open'); } catch (e) {}
+            sync();
+        };
+        btn.addEventListener('click', collapse);
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'b'
+                && matchMedia('(min-width: 992px)').matches) { e.preventDefault(); collapse(); }
+        });
+        // Tables re-measure their columns on resize; the content area changes width with the sidebar.
+        sb.addEventListener('transitionend', (e) => {
+            if (e.target === sb && e.propertyName === 'width') window.dispatchEvent(new Event('resize'));
+        });
+        sync();
+    })();
+
+    // Light / dark toggle: remembers the choice; until one is made, follows the OS setting live.
+    (function () {
+        const root = document.documentElement;
+        const mq = matchMedia('(prefers-color-scheme: dark)');
+        const saved = () => { try { return localStorage.getItem('eds-theme'); } catch (e) { return null; } };
+        const apply = (t) => {
+            root.classList.add('theme-switching');
+            root.setAttribute('data-bs-theme', t);
+            setTimeout(() => root.classList.remove('theme-switching'), 250);
+        };
+        document.getElementById('themeToggle').addEventListener('click', () => {
+            const next = root.getAttribute('data-bs-theme') === 'dark' ? 'light' : 'dark';
+            try { localStorage.setItem('eds-theme', next); } catch (e) {}
+            apply(next);
+        });
+        mq.addEventListener('change', (e) => { if (!saved()) apply(e.matches ? 'dark' : 'light'); });
+    })();
+
+    // Clear all data: the delete button only unlocks once DELETE is typed.
+    (function () {
+        const modal = document.getElementById('resetModal');
+        const input = document.getElementById('resetConfirm');
+        const submit = document.getElementById('resetSubmit');
+        input.addEventListener('input', () => { submit.disabled = input.value.trim() !== 'DELETE'; });
+        modal.addEventListener('shown.bs.modal', () => input.focus());
+        modal.addEventListener('hidden.bs.modal', () => { input.value = ''; submit.disabled = true; });
+        document.getElementById('resetForm').addEventListener('submit', () => {
+            submit.disabled = true;
+            submit.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Deleting…';
+        });
+    })();
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

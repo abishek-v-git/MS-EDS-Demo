@@ -1,0 +1,37 @@
+{% for r in records %}
+<div class="hc-record{% if r.new %} is-new{% endif %}">
+    <div class="hc-record-head">
+        <span class="hc-id">{{ r.id }}</span>
+        <span class="hc-program">{{ r.program|default:"No program" }}</span>
+        {% if r.new %}<span class="hc-badge is-new">New record</span>{% else %}<span class="hc-badge">Updated</span>{% endif %}
+        <span class="hc-count">{{ r.count }} field{{ r.count|pluralize }}</span>
+    </div>
+    {% for sec in r.sections %}
+    <div class="hc-section" style="--sec: {{ sec.topic.accent|default:'#8a94a6' }};">
+        <div class="hc-section-title">{% if sec.topic %}<i class="bi {{ sec.topic.icon }}"></i>{{ sec.topic.title }}{% else %}{{ sec.label }}{% endif %}</div>
+        <dl class="hc-rows">
+            {% for c in sec.changes %}
+            <div class="hc-row">
+                <dt>{{ c.label }}</dt>
+                <dd>
+                    {% if not r.new %}
+                    <span class="hc-old {% if not c.old %}is-blank{% endif %}" title="Before">{{ c.old|default:"(blank)" }}</span>
+                    <i class="bi bi-arrow-right hc-arrow" aria-label="changed to"></i>
+                    {% endif %}
+                    <span class="hc-new {% if not c.new %}is-blank{% endif %}" title="After">{{ c.new|default:"(blank)" }}</span>
+                </dd>
+            </div>
+            {% endfor %}
+        </dl>
+    </div>
+    {% endfor %}
+</div>
+{% empty %}
+<div class="hist-quiet">No field changes match the current filters.</div>
+{% endfor %}
+{% if more > 0 %}
+<button type="button" class="btn btn-sm btn-ghost hist-more"
+        data-url="{% url 'history_changes' activity.pk %}?offset={{ next_offset }}{% if query %}&{{ query }}{% endif %}">
+    <i class="bi bi-chevron-down me-1"></i>Show {{ more }} more record{{ more|pluralize }} <span class="text-muted">({{ next_offset }} of {{ total_records }} shown)</span>
+</button>
+{% endif %}

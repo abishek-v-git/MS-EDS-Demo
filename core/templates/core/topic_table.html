@@ -1,0 +1,192 @@
+{% extends "core/base.html" %}
+{% load static %}
+
+{% block title %}{{ topic.title }} · ms-eds-demo{% endblock %}
+
+{% block head %}
+<link href="https://cdn.jsdelivr.net/npm/datatables.net-bs5@2.1.8/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/datatables.net-fixedcolumns-bs5@5.0.4/css/fixedColumns.bootstrap5.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/datatables.net-buttons-bs5@3.1.2/css/buttons.bootstrap5.min.css" rel="stylesheet">
+{% endblock %}
+
+{% block body_attrs %}class="page-fit" style="--accent-src: {{ topic.accent }};"{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div class="topic-header">
+        <div class="topic-icon"><i class="bi {{ topic.icon }}"></i></div>
+        <div>
+            <div class="topic-kicker">{% if topic.group %}{{ topic.group }} <span class="sep">/</span> {% endif %}Section {{ topic.order }} of {{ topics|length }}</div>
+            <h1 class="topic-title">{{ topic.title }}</h1>
+        </div>
+    </div>
+    <div class="page-meta">
+        <span><b>{{ record_count }}</b> EDS records</span>
+        <span><b>{{ topic_field_count }}</b> fields</span>
+        <span><b id="statRowsWithData">–</b> with data here</span>
+        {% if record_count and insight_cards %}
+        <button type="button" class="insight-toggle" id="insightToggle" aria-controls="insightCards" aria-expanded="true">
+            <i class="bi bi-chevron-up"></i><span>Hide summary</span>
+        </button>
+        {% endif %}
+    </div>
+</div>
+
+{% if record_count and insight_cards %}
+<div class="insight-grid" id="insightCards" aria-live="polite">
+    {% include "core/_insights.html" with cards=insight_cards %}
+</div>
+{% endif %}
+
+{% if record_count %}
+<div class="table-card">
+    <table id="edsTable" class="table table-sm table-hover eds-table nowrap w-100"></table>
+</div>
+{% else %}
+<div class="empty-state">
+    <i class="bi bi-inbox"></i>
+    <h2>No EDS records yet</h2>
+    <p>Upload an Excel file with the EDS columns to fill all seven section tabs.</p>
+    <div class="d-flex gap-2 justify-content-center">
+        <button class="btn btn-primary app-btn" data-bs-toggle="modal" data-bs-target="#uploadModal">
+            <i class="bi bi-file-earmark-arrow-up me-1"></i>Upload Excel
+        </button>
+        <a href="{% url 'download_template' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-download me-1"></i>Blank template
+        </a>
+    </div>
+</div>
+{% endif %}
+
+<!-- Expanded view for long-text cells (click a note box) -->
+<div class="note-pop" id="notePop" role="dialog" aria-labelledby="notePopTitle" hidden>
+    <div class="note-pop-head">
+        <div class="min-w-0">
+            <div class="note-pop-title" id="notePopTitle"></div>
+            <div class="note-pop-sub" id="notePopSub"></div>
+        </div>
+        <div class="note-pop-actions">
+            <button type="button" id="notePopCopy" title="Copy text"><i class="bi bi-clipboard"></i></button>
+            <button type="button" id="notePopFull" title="Open fullscreen"><i class="bi bi-arrows-fullscreen"></i></button>
+            <button type="button" id="notePopClose" title="Close (Esc)"><i class="bi bi-x-lg"></i></button>
+        </div>
+    </div>
+    <div class="note-pop-body" id="notePopBody"></div>
+</div>
+
+<!-- Monthly profile bubble (click Total expected demand / Monthly profile) -->
+<div class="month-pop" id="monthPop" role="dialog" aria-labelledby="monthPopTitle" hidden>
+    <span class="month-pop-caret" id="monthPopCaret"></span>
+    <div class="note-pop-head">
+        <div class="min-w-0">
+            <div class="note-pop-title" id="monthPopTitle"><i class="bi bi-calendar3 me-1"></i>Monthly profile</div>
+            <div class="note-pop-sub" id="monthPopSub"></div>
+        </div>
+        <div class="note-pop-actions">
+            <button type="button" id="monthPopClose" title="Close (Esc)"><i class="bi bi-x-lg"></i></button>
+        </div>
+    </div>
+    <div id="monthPopBody"></div>
+</div>
+
+<!-- Program view (click a program name) -->
+<div class="modal fade" id="programModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable program-dialog">
+        <div class="modal-content">
+            <div class="modal-header app-modal-header">
+                <div>
+                    <h6 class="modal-title mb-0"><i class="bi bi-diagram-3 me-2"></i><span id="programModalTitle"></span></h6>
+                    <div class="note-modal-sub" id="programModalSub">Program view · all EDS records and their data</div>
+                </div>
+                <div class="pv-actions">
+                    <button type="button" class="pv-act" id="pvAdd" title="Add a new EDS record to this program"><i class="bi bi-plus-lg"></i></button>
+                    <button type="button" class="pv-act" id="pvEdit" title="Edit this record (all sections)"><i class="bi bi-pencil"></i></button>
+                    <button type="button" class="btn btn-sm btn-ghost" id="pvCancel" hidden>Cancel</button>
+                    <button type="button" class="btn btn-sm btn-primary app-btn" id="pvSave" hidden><i class="bi bi-check2 me-1"></i>Save</button>
+                    <span class="pv-act-sep"></span>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+            </div>
+            <div class="modal-body p-0" id="programBody"></div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="noteModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header app-modal-header">
+                <div>
+                    <h6 class="modal-title mb-0" id="noteModalTitle"></h6>
+                    <div class="note-modal-sub" id="noteModalSub"></div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body note-modal-body" id="noteModalBody"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit row -->
+<div class="modal fade" id="editModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <form class="modal-content" id="editForm" novalidate>
+            <div class="modal-header app-modal-header">
+                <div>
+                    <h6 class="modal-title mb-0"><i class="bi bi-pencil-square me-2"></i>Edit · {{ topic.title }}</h6>
+                    <div class="note-modal-sub" id="editModalSub"></div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="editBody">
+                <div class="text-center text-muted py-5"><div class="spinner-border spinner-border-sm"></div> Loading…</div>
+            </div>
+            <div class="modal-footer">
+                <span class="me-auto small text-muted"><i class="bi bi-info-circle me-1"></i>Saving refreshes the record's review date.</span>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-sm btn-primary app-btn" id="editSave">
+                    <i class="bi bi-check2 me-1"></i>Save
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+    <div class="toast align-items-center text-bg-success border-0" id="saveToast" role="status">
+        <div class="d-flex">
+            <div class="toast-body" id="saveToastText"></div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    </div>
+</div>
+
+{{ columns|json_script:"columns-data" }}
+<div id="tableConfig" hidden
+     data-edit-url="{{ edit_url_tpl }}"
+     data-export-url="{{ export_url }}"
+     data-url="{{ topic.data_url }}"
+     data-context="{{ context_count }}"
+     data-identity="{% if topic.is_identity %}1{% else %}0{% endif %}"
+     data-program-url="{% url 'program_detail' %}"
+     data-record-new-url="{% url 'record_new' %}"
+     data-record-pick-url="{% url 'record_pick' %}"
+     data-record-edit-url="{% url 'record_edit' 0 %}"
+     data-group="{{ topic.group }}"
+     data-creates-records="{% if creates_records %}1{% else %}0{% endif %}"
+     data-topic="{{ topic.label }}"></div>
+{% endblock %}
+
+{% block scripts %}
+{% if record_count %}
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/datatables.net@2.1.8/js/dataTables.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/datatables.net-bs5@2.1.8/js/dataTables.bootstrap5.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/datatables.net-fixedcolumns@5.0.4/js/dataTables.fixedColumns.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/datatables.net-fixedcolumns-bs5@5.0.4/js/fixedColumns.bootstrap5.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/datatables.net-buttons@3.1.2/js/dataTables.buttons.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/datatables.net-buttons@3.1.2/js/buttons.colVis.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/datatables.net-buttons-bs5@3.1.2/js/buttons.bootstrap5.min.js"></script>
+<script src="{% static 'core/topic_table.js' %}"></script>
+{% endif %}
+{% endblock %}

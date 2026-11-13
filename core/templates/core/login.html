@@ -1,0 +1,151 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% include "core/_head.html" %}
+    <title>Sign in · MS-EDS</title>
+    <link href="{% static 'core/app.css' %}" rel="stylesheet">
+</head>
+<body class="auth-body">
+
+<div class="auth">
+    <!-- Brand panel: what the app covers, in the section colours used across the app -->
+    <aside class="auth-brand" aria-hidden="true">
+        <div class="auth-brand-top">
+            <span class="brand-mark"><i class="bi bi-hdd-rack"></i></span>
+            <span class="auth-brand-name">MS-EDS</span>
+        </div>
+        <div class="auth-pitch">
+            <h2>Every demand line, from signal to closure.</h2>
+            <p>One record per demand line, tracked through each stage, from intake and approvals to delivery.</p>
+        </div>
+        <div class="auth-flow">
+            {% for group_name, group_topics in topic_groups %}
+            <div class="auth-flow-stage">
+                <div class="auth-flow-group">{% firstof group_name group_topics.0.title %}</div>
+                <ol>
+                    {% for t in group_topics %}
+                    <li style="--tab-accent: {{ t.accent }};">
+                        <span class="auth-flow-dot"><i class="bi {{ t.icon }}"></i></span>
+                        <span class="auth-flow-title">{{ t.title }}</span>
+                    </li>
+                    {% endfor %}
+                </ol>
+            </div>
+            {% endfor %}
+        </div>
+        <div class="auth-brand-foot">Internal tool · authorised users only</div>
+    </aside>
+
+    <!-- Sign-in form -->
+    <main class="auth-main">
+        <button type="button" class="theme-toggle auth-theme" id="themeToggle" title="Switch light / dark theme" aria-label="Switch light / dark theme">
+            <i class="bi bi-moon-stars theme-ico-dark"></i>
+            <i class="bi bi-sun theme-ico-light"></i>
+        </button>
+
+        <div class="auth-card">
+            <div class="auth-mobile-brand">
+                <span class="brand-mark"><i class="bi bi-hdd-rack"></i></span>
+                <span>MS-EDS</span>
+            </div>
+            <h1 class="auth-title">Sign in</h1>
+            <p class="auth-sub">Welcome back. Use your MS-EDS account to continue.</p>
+
+            {% for msg in messages %}
+            <div class="auth-note"><i class="bi bi-check2-circle"></i>{{ msg }}</div>
+            {% endfor %}
+            {% if form.non_field_errors %}
+            <div class="auth-error" role="alert">
+                <i class="bi bi-exclamation-circle"></i>
+                <span>{% for e in form.non_field_errors %}{{ e }}{% endfor %}</span>
+            </div>
+            {% elif next and not user.is_authenticated and not form.is_bound %}
+            <div class="auth-note"><i class="bi bi-lock"></i>Please sign in to open that page.</div>
+            {% endif %}
+
+            <form method="post" class="auth-form" id="authForm" novalidate>
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ next }}">
+
+                <label class="auth-label" for="id_username">Username</label>
+                <div class="auth-field">
+                    <i class="bi bi-person"></i>
+                    <input type="text" name="username" id="id_username" value="{{ form.username.value|default:'' }}"
+                           autocomplete="username" autocapitalize="none" spellcheck="false" required
+                           {% if not form.username.value %}autofocus{% endif %}>
+                </div>
+
+                <label class="auth-label" for="id_password">Password</label>
+                <div class="auth-field">
+                    <i class="bi bi-key"></i>
+                    <input type="password" name="password" id="id_password" autocomplete="current-password" required
+                           {% if form.username.value %}autofocus{% endif %}>
+                    <button type="button" class="auth-reveal" id="pwReveal" aria-label="Show password" title="Show password">
+                        <i class="bi bi-eye"></i>
+                    </button>
+                </div>
+                <div class="auth-caps" id="capsHint" hidden><i class="bi bi-capslock"></i>Caps Lock is on</div>
+
+                <label class="auth-remember">
+                    <input type="checkbox" name="remember" class="form-check-input" {% if form.remember.value or not form.is_bound %}checked{% endif %}>
+                    Keep me signed in
+                </label>
+
+                <button type="submit" class="btn btn-primary app-btn auth-submit" id="authSubmit">
+                    <span class="auth-submit-text">Sign in</span><i class="bi bi-arrow-right"></i>
+                </button>
+            </form>
+
+            <p class="auth-help"><i class="bi bi-info-circle"></i>No account or forgot your password? Ask your EDS administrator.</p>
+        </div>
+    </main>
+</div>
+
+<script>
+    (function () {
+        const root = document.documentElement;
+        document.getElementById('themeToggle').addEventListener('click', () => {
+            const next = root.getAttribute('data-bs-theme') === 'dark' ? 'light' : 'dark';
+            try { localStorage.setItem('eds-theme', next); } catch (e) {}
+            root.classList.add('theme-switching');
+            root.setAttribute('data-bs-theme', next);
+            setTimeout(() => root.classList.remove('theme-switching'), 250);
+        });
+
+        const pw = document.getElementById('id_password');
+        const reveal = document.getElementById('pwReveal');
+        reveal.addEventListener('click', () => {
+            const show = pw.type === 'password';
+            pw.type = show ? 'text' : 'password';
+            reveal.innerHTML = `<i class="bi bi-eye${show ? '-slash' : ''}"></i>`;
+            reveal.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+            reveal.title = reveal.getAttribute('aria-label');
+            pw.focus();
+        });
+
+        const caps = document.getElementById('capsHint');
+        const checkCaps = (e) => { if (e.getModifierState) caps.hidden = !e.getModifierState('CapsLock'); };
+        pw.addEventListener('keydown', checkCaps);
+        pw.addEventListener('keyup', checkCaps);
+        pw.addEventListener('blur', () => { caps.hidden = true; });
+
+        const form = document.getElementById('authForm');
+        const submit = document.getElementById('authSubmit');
+        form.addEventListener('submit', (e) => {
+            const user = document.getElementById('id_username');
+            for (const f of [user, pw]) f.closest('.auth-field').classList.toggle('is-invalid', !f.value.trim());
+            if (!user.value.trim() || !pw.value) {
+                e.preventDefault();
+                (user.value.trim() ? pw : user).focus();
+                return;
+            }
+            submit.disabled = true;
+            submit.innerHTML = '<span class="spinner-border spinner-border-sm"></span><span class="auth-submit-text">Signing in…</span>';
+        });
+        for (const f of form.querySelectorAll('.auth-field input')) {
+            f.addEventListener('input', () => f.closest('.auth-field').classList.remove('is-invalid'));
+        }
+    })();
+</script>
+</body>
+</html>
