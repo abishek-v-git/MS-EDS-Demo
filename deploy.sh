@@ -15,12 +15,6 @@ git pull origin main || {
     exit 1
 }
 
-echo "SCM"
-
-sudo systemctl restart scm.service || {
-    echo "❌ Failed to restart the BOM service"
-    exit 1
-}
 
 echo "NGINX"
 
