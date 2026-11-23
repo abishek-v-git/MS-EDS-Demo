@@ -30,6 +30,8 @@ urlpatterns = [
     path("record/pick/", views.record_pick, name="record_pick"),
     path("record/<int:pk>/edit/", views.record_form, name="record_edit"),
     path("template/", views.download_template, name="download_template"),
+    path("mockup/", views.workflow_mockup, name="workflow_mockup"),
+    path("mockup/app/", views.workflow_mockup_app, name="workflow_mockup_app"),
     # Each section is mounted at its own slug, e.g. /pre-bom/
     *[path(f"{t.slug}/", include(topic_urls(t.label))) for t in get_topics()],
 ]

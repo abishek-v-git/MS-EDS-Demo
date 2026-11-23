@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EDS Process Flow</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+<style>
+/* Layout: one vertical main path in stage bands; side outcomes to the right; feedback loops in their own far-right lane. */
+:root {
+    --bg: #f4f6f9; --surface: #ffffff; --surface-2: #f8fafc; --ink: #172033; --muted: #5f6b80; --faint: #a3adbd;
+    --line: #e2e7ef; --line-soft: #eef1f6; --brand: #1f4e99; --brand-soft: #e8effa;
+    --ok: #1a7a3c; --ok-soft: #e5f4ea; --loop: #b4530f; --stop: #c92a2a; --edge: #8b96a8;
+    --f-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif; --f-head: "Space Grotesk", "Inter", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+    --bg: #0b1018; --surface: #121925; --surface-2: #172031; --ink: #e4e9f1; --muted: #93a0b5; --faint: #4f5b70;
+    --line: #253043; --line-soft: #1b2433; --brand: #6c9cf0; --brand-soft: rgba(108,156,240,.16);
+    --ok: #5cc98a; --ok-soft: rgba(92,201,138,.14); --loop: #f0a35e; --stop: #f07a7a; --edge: #6b778c; color-scheme: dark;
+} }
+:root[data-theme="dark"] {
+    --bg: #0b1018; --surface: #121925; --surface-2: #172031; --ink: #e4e9f1; --muted: #93a0b5; --faint: #4f5b70;
+    --line: #253043; --line-soft: #1b2433; --brand: #6c9cf0; --brand-soft: rgba(108,156,240,.16);
+    --ok: #5cc98a; --ok-soft: rgba(92,201,138,.14); --loop: #f0a35e; --stop: #f07a7a; --edge: #6b778c; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 14px; margin: 0;
+    padding: 28px max(16px, env(safe-area-inset-right, 0px)) 40px max(16px, env(safe-area-inset-left, 0px)); }
+.page { max-width: 1240px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+h1 { font-family: var(--f-head); font-size: 28px; letter-spacing: -.3px; margin: 0; text-wrap: balance; }
+.sub { color: var(--muted); margin: 4px 0 0; max-width: 72ch; line-height: 1.5; }
+.top { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 24px; }
+.ctl { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.ctl select { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; min-width: 220px; }
+.ctl select:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 12.5px; align-items: center; }
+.legend > span { display: inline-flex; align-items: center; gap: 6px; }
+.keys { display: flex; flex-wrap: wrap; gap: 6px; }
+.key { --g: #888; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; padding: 3px 9px 3px 3px; border-radius: 999px;
+    background: color-mix(in srgb, var(--g) 10%, var(--surface)); border: 1px solid color-mix(in srgb, var(--g) 25%, transparent); }
+.av { --g: #888; width: 26px; height: 26px; border-radius: 50%; display: inline-grid; place-items: center; flex-shrink: 0;
+    font-size: 9.5px; font-weight: 700; letter-spacing: .02em; color: #fff; background: var(--g); box-shadow: 0 0 0 2px var(--surface); }
+.av + .av { margin-left: -8px; }
+.key .av { width: 22px; height: 22px; font-size: 8.5px; box-shadow: none; }
+
+.wrap { position: relative; overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
+.fc { position: relative; display: grid; min-width: 940px; padding: 20px 0 24px; row-gap: 26px; align-items: center;
+    grid-template-columns: 200px 52px minmax(290px, 350px) minmax(260px, 1fr) 72px; }
+svg.edges { position: absolute; left: 0; top: 0; pointer-events: none; overflow: visible; }
+.band { grid-column: 1 / -1; align-self: stretch; margin: -13px 0; border-top: 1px solid var(--line-soft); }
+.band.shade { background: var(--surface-2); }
+.stage { grid-column: 1; align-self: start; display: flex; gap: 10px; padding: 2px 10px 0 18px; font-size: 13px; line-height: 1.3; }
+.stage b { display: block; font-weight: 650; }
+.stage small { display: block; color: var(--muted); font-size: 11.5px; margin-top: 2px; }
+.sn { --s: #888; width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0; display: grid; place-items: center;
+    font-size: 12px; font-weight: 700; color: #fff; background: var(--s); }
+.main { grid-column: 3; display: flex; justify-content: center; position: relative; z-index: 1; }
+.par { display: flex; gap: 10px; width: 100%; }
+.par .node { flex: 1; min-width: 0; flex-wrap: wrap; row-gap: 4px; }
+.par .out { margin-left: 36px; }
+.node { --g: #888; width: 100%; display: flex; align-items: center; gap: 10px; padding: 9px 11px; border-radius: 10px;
+    background: var(--surface); border: 1px solid var(--line); box-shadow: inset 3px 0 0 var(--g), 0 1px 2px rgba(16,24,40,.05);
+    transition: opacity .2s, border-color .2s; }
+.node.trigger { border-style: dashed; }
+.txt { flex: 1; min-width: 0; line-height: 1.25; }
+.txt b { display: block; font-size: 13px; font-weight: 650; }
+.txt small { font-size: 11.5px; color: var(--muted); }
+.out { font-size: 11px; font-weight: 600; color: var(--ok); background: var(--ok-soft); border-radius: 999px; padding: 2px 8px; white-space: nowrap; }
+.term { display: inline-flex; align-items: center; gap: 8px; padding: 8px 18px; border-radius: 999px; font-size: 13px; font-weight: 650; background: var(--line-soft); }
+.term.end { background: var(--ok-soft); color: var(--ok); }
+.alts { grid-column: 4; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding-left: 42px; position: relative; z-index: 1; }
+.alts.low { padding-top: 48px; }
+.alt { display: flex; gap: 8px; align-items: flex-start; max-width: 100%; padding: 6px 10px; border-radius: 8px; font-size: 12.5px; line-height: 1.3;
+    background: var(--surface); border: 1px dashed var(--faint); transition: opacity .2s; }
+.alt .ic { font-weight: 700; width: 14px; text-align: center; }
+.alt.loop .ic { color: var(--loop); }
+.alt.end .ic { color: var(--stop); }
+.alt.back .ic { color: var(--muted); }
+.alt small { color: var(--muted); font-size: 11.5px; }
+.alt .to { display: block; font-size: 11.5px; color: var(--muted); }
+/* highlight one group */
+.fc.focus .node:not(.on), .fc.focus .alt:not(.on) { opacity: .32; }
+.node.on { border-color: var(--g); box-shadow: inset 3px 0 0 var(--g), 0 0 0 2px color-mix(in srgb, var(--g) 30%, transparent); }
+.alt.on { border-color: var(--g); border-style: solid; }
+
+.e { fill: none; stroke: var(--edge); stroke-width: 1.6; stroke-linejoin: round; }
+.e.altp { stroke: var(--faint); stroke-width: 1.3; }
+.e.skip { stroke-dasharray: 2 4; }
+.e.loopp { stroke: var(--loop); stroke-dasharray: 6 4; stroke-width: 1.6; }
+.mk { fill: var(--edge); } .mk-alt { fill: var(--faint); } .mk-loop { fill: var(--loop); }
+.lbl { font: 500 11.5px var(--f-body); fill: var(--muted); }
+.lbl.loopl { fill: var(--loop); }
+.note { font-size: 12.5px; color: var(--muted); line-height: 1.5; }
+@media (prefers-reduced-motion: reduce) { .node, .alt { transition: none; } }
+</style>
+</head>
+<body>
+<div class="page">
+    <header class="top">
+        <div>
+            <h1>EDS process flow</h1>
+            <p class="sub">From the first demand signal to a closed record: 9 stages, 33 actions across 12 groups.
+                The main path runs top to bottom; side outcomes sit to the right, and orange dashed arrows are feedback loops.</p>
+        </div>
+        <label class="ctl" for="hl">Highlight
+            <select id="hl"><option value="">All groups</option></select>
+        </label>
+    </header>
+    <div class="legend" aria-label="Legend">
+        <span><svg width="28" height="10" aria-hidden="true"><line x1="0" y1="5" x2="21" y2="5" class="e"/><path d="M20,1 L27,5 L20,9 z" class="mk"/></svg>Next step</span>
+        <span><svg width="28" height="10" aria-hidden="true"><line x1="0" y1="5" x2="21" y2="5" class="e loopp"/><path d="M20,1 L27,5 L20,9 z" class="mk-loop"/></svg>Sent back (feedback loop)</span>
+        <span><svg width="28" height="10" aria-hidden="true"><line x1="0" y1="5" x2="21" y2="5" class="e skip"/><path d="M20,1 L27,5 L20,9 z" class="mk"/></svg>Skipped when not needed</span>
+        <span><b style="color:var(--stop)">✕</b>Stops</span>
+        <span><span class="out">Status</span>Record status after the action</span>
+    </div>
+    <div class="keys" id="keys" aria-label="Groups"></div>
+    <div class="wrap" id="wrap">
+        <div class="fc" id="fc"></div>
+        <svg class="edges" id="edges" aria-hidden="true"></svg>
+    </div>
+    <p class="note">Notifications (for example Finance hearing that suppliers were awarded) are not drawn; only the actions that move a record are.
+        Source: EDS Operating Model stages and the Actions tab of EDS_Groups_Access_Flow_v2.xlsx.</p>
+</div>
+
+<script>
+(function () {
+    'use strict';
+    const GROUPS = {
+        pm: ['Program PM', 'PM', '#2f6fd6'], azn: ['AZN', 'AZN', '#1f8fbf'], schie: ['SCHIE', 'SCH', '#0f7b8a'],
+        rack: ['Rack Planners', 'RP', '#3b6fd1'], ssm: ['Strategic Sourcing', 'SS', '#2e9d5b'], cmp: ['CMP', 'CMP', '#5b3f9e'],
+        cp: ['CP', 'CP', '#1f4e99'], si: ['SI Planners', 'SI', '#b4521e'], df: ['DF Sites', 'DF', '#8a6d0f'],
+        sup: ['Suppliers', 'SUP', '#7a5bd1'], wwt: ['WWT', 'WWT', '#0f8a7e'], fin: ['Finance', 'FIN', '#8a3b5c'],
+    };
+    const STAGES = {
+        1: ['Early Demand Signal Intake', '#2f6fd6'], 2: ['Pre-BOM Validation', '#1f8fbf'], 3: ['Supplier Feasibility', '#2e9d5b'],
+        4: ['CapEx Approval', '#b07f00'], 5: ['Risk-Buy Decision', '#d9622b', 'Only when short'], 6: ['MSPN / MSF Enablement', '#3b6fd1'],
+        7: ['Supplier Commitment', '#7a5bd1'], 8: ['Purchase Order & Fulfilment', '#0f8a7e'], 9: ['BOM Release & Standard Forecast', '#1f4e99'],
+    };
+    // action: [name, groups, status after]
+    const A = {
+        createRecord: ['Create record', ['pm'], 'Draft'], submitPreBom: ['Submit for pre-BOM', ['pm'], 'Pre-BOM in progress'],
+        completeRack: ['Complete rack configuration', ['rack'], 'Configuration done'], confirmParts: ['Confirm parts and qualification', ['schie'], 'Parts confirmed'],
+        greenLight: ['Green-light', ['azn'], 'Validated'], sendBack: ['Send back', ['azn', 'schie'], 'Returned'],
+        sendRequest: ['Send request to suppliers', ['ssm'], 'Requested'], acceptReply: ['Accept and reply', ['sup'], 'Responded'],
+        decline: ['Decline', ['sup'], 'Declined'], askClarify: ['Ask supplier to clarify', ['ssm'], 'Clarification asked'],
+        award: ['Award and close round', ['ssm'], 'Selected / Not selected'],
+        submitCapex: ['Submit CapEx request', ['pm', 'cp'], 'Submitted'], withdraw: ['Withdraw request', ['pm', 'cp'], 'Draft'],
+        approveCapex: ['Approve CapEx', ['fin'], 'Approved'], returnCapex: ['Return for changes', ['fin'], 'Returned'], rejectCapex: ['Reject CapEx', ['fin'], 'Rejected'],
+        raiseRisk: ['Raise risk buy', ['ssm', 'cmp'], 'Submitted'], approveRisk: ['Approve risk buy', ['fin'], 'Approved'], rejectRisk: ['Reject risk buy', ['fin'], 'Rejected'],
+        createMspn: ['Create MSPN/MSF', ['ssm', 'cmp'], 'Created'], confirmWwt: ['Confirm WWT-enabled', ['wwt'], 'Orderable'],
+        requestCommit: ['Request commitment', ['ssm'], 'Commit requested'], submitCommit: ['Submit commitment', ['sup'], 'Submitted'],
+        acceptCommit: ['Accept commitment', ['ssm'], 'Committed'], sendBackCommit: ['Send back', ['ssm'], 'Sent back'],
+        issuePO: ['Issue PO', ['cmp'], 'PO issued'], ackPO: ['Acknowledge PO', ['sup'], 'Acknowledged'],
+        confirmShip: ['Confirm shipment / receipt', ['wwt'], 'Received'], confirmBuild: ['Confirm build and delivery', ['si'], 'Delivered'],
+        confirmLanded: ['Confirm rack landed', ['df'], 'Landed'], handoverT2: ['Hand over to T2', ['cp'], 'In T2 forecast'],
+        closeRecord: ['Close record', ['pm', 'cp'], 'Closed'], changeDemand: ['Change demand', ['pm'], 'Change requested'],
+    };
+    const FC = [
+        [1, ['createRecord']], [1, ['submitPreBom']],
+        [2, ['completeRack', 'confirmParts'], null, true], [2, ['greenLight'], [['sendBack', 'loop', 'submitPreBom']]],
+        [3, ['sendRequest']], [3, ['acceptReply'], [['decline', 'end', 'That supplier drops out']]], [3, ['award'], [['askClarify', 'loop', 'acceptReply']]],
+        [4, ['submitCapex'], [['withdraw', 'back', 'Back to draft']]], [4, ['approveCapex'], [['returnCapex', 'loop', 'submitCapex'], ['rejectCapex', 'end', 'Stops here']]],
+        [5, ['raiseRisk']], [5, ['approveRisk'], [['rejectRisk', 'end', 'Stops; shortfall stays open']]],
+        [6, ['createMspn']], [6, ['confirmWwt']],
+        [7, ['requestCommit']], [7, ['submitCommit']], [7, ['acceptCommit'], [['sendBackCommit', 'loop', 'submitCommit']]],
+        [8, ['issuePO']], [8, ['ackPO']], [8, ['confirmShip']], [8, ['confirmBuild']], [8, ['confirmLanded']],
+        [9, ['handoverT2']], [9, ['closeRecord']],
+    ];
+    const LOOP = ['changeDemand', 'sendRequest'];
+    const targets = new Set([LOOP[1], ...FC.flatMap((r) => (r[2] || []).filter((x) => x[1] === 'loop').map((x) => x[2]))]);
+    const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const gname = (ids) => ids.map((g) => GROUPS[g][0]).join(', ');
+    const av = (ids) => ids.map((g) => `<span class="av" style="--g:${GROUPS[g][2]}" title="${esc(GROUPS[g][0])}">${GROUPS[g][1]}</span>`).join('');
+
+    const node = (id, extra = '') => {
+        const [name, gs, after] = A[id];
+        return `<div class="node ${extra}" id="n-${id}" data-g="${gs.join(' ')}" style="--g:${GROUPS[gs[0]][2]}">
+            <span style="display:flex">${av(gs)}</span>
+            <span class="txt"><b>${esc(name)}</b><small>${esc(gname(gs))}</small></span>
+            <span class="out">${esc(after)}</span></div>`;
+    };
+    const alt = ([id, kind, to]) => {
+        const [name, gs] = A[id];
+        return `<div class="alt ${kind}" id="a-${id}" data-g="${gs.join(' ')}" style="--g:${GROUPS[gs[0]][2]}">
+            <span class="ic">${kind === 'loop' ? '↩' : kind === 'back' ? '↺' : '✕'}</span>
+            <span><b>${esc(name)}</b> <small>${esc(gname(gs))}</small>
+            <span class="to">${kind === 'loop' ? 'Back to: ' + esc(A[to][0]) : esc(to)}</span></span></div>`;
+    };
+
+    // build the grid
+    const cells = [], bands = {};
+    let row = 2;
+    FC.forEach(([stage, main, alts, par]) => {
+        (bands[stage] = bands[stage] || { from: row }).to = row;
+        cells.push(`<div class="main" style="grid-row:${row}">${par ? `<div class="par">${main.map((id) => node(id)).join('')}</div>` : node(main[0])}</div>`);
+        if (alts) cells.push(`<div class="alts ${main.some((id) => targets.has(id)) ? 'low' : ''}" style="grid-row:${row}">${alts.map(alt).join('')}</div>`);
+        row += 1;
+    });
+    const endRow = row, loopRow = row + 1;
+    const bandHtml = Object.entries(bands).map(([id, b], i) => {
+        const [name, color, note] = STAGES[id];
+        return `<div class="band ${i % 2 ? 'shade' : ''}" style="grid-row:${b.from} / ${b.to + 1}"></div>
+            <div class="stage" style="grid-row:${b.from} / ${b.to + 1}"><span class="sn" style="--s:${color}">${id}</span>
+            <span><b>${esc(name)}</b>${note ? `<small>${esc(note)}</small>` : ''}</span></div>`;
+    }).join('');
+    const fc = document.getElementById('fc');
+    fc.style.gridTemplateRows = `repeat(${loopRow}, auto)`;
+    fc.innerHTML = bandHtml +
+        `<div class="main" style="grid-row:1"><div class="term" id="n-start">● Demand signal arrives</div></div>` + cells.join('') +
+        `<div class="main" style="grid-row:${endRow}"><div class="term end" id="n-end">⚑ Record closed</div></div>
+         <div class="band" style="grid-row:${loopRow}"></div>
+         <div class="stage" style="grid-row:${loopRow}"><span class="sn" style="--s:var(--loop)">↻</span><span><b>Feedback loop</b><small>Any time before closure</small></span></div>
+         <div class="main" style="grid-row:${loopRow}">${node(LOOP[0], 'trigger')}</div>`;
+
+    // group key + highlight
+    const sel = document.getElementById('hl');
+    document.getElementById('keys').innerHTML = Object.entries(GROUPS).map(([id, [name, short, color]]) =>
+        `<span class="key" style="--g:${color}"><span class="av" style="--g:${color}">${short}</span>${esc(name)}</span>`).join('');
+    sel.innerHTML += Object.entries(GROUPS).map(([id, [name]]) => `<option value="${id}">${esc(name)}</option>`).join('');
+    sel.addEventListener('change', () => {
+        const g = sel.value;
+        fc.classList.toggle('focus', !!g);
+        fc.querySelectorAll('[data-g]').forEach((el) => el.classList.toggle('on', !!g && el.dataset.g.split(' ').includes(g)));
+    });
+
+    // arrows, from real positions
+    const wrap = document.getElementById('wrap'), svg = document.getElementById('edges');
+    function draw() {
+        const W = fc.getBoundingClientRect();
+        const box = (el) => {
+            const b = el.getBoundingClientRect(), x = b.left - W.left, y = b.top - W.top;
+            return { x, y, r: x + b.width, b: y + b.height, cx: x + b.width / 2, cy: y + b.height / 2 };
+        };
+        const n = (id) => box(document.getElementById('n-' + id));
+        const out = [];
+        const path = (d, cls, m) => out.push(`<path d="${d}" class="e ${cls}" marker-end="url(#${m})"/>`);
+        const text = (x, y, t, anchor, cls = '') => out.push(`<text x="${x}" y="${y}" text-anchor="${anchor}" class="lbl ${cls}">${esc(t)}</text>`);
+        const down = (a, b) => Math.abs(a.cx - b.cx) < 1 ? path(`M${a.cx},${a.b} V${b.y - 2}`, '', 'm')
+            : path(`M${a.cx},${a.b} V${(a.b + b.y) / 2} H${b.cx} V${b.y - 2}`, '', 'm');
+        const steps = [['start'], ...FC.map((r) => r[1]), ['end']];
+        for (let i = 0; i < steps.length - 1; i++) steps[i].forEach((a) => steps[i + 1].forEach((b) => down(n(a), n(b))));
+        const ap = n('approveCapex'), rr = n('raiseRisk'), ms = n('createMspn');
+        text(ap.cx + 8, (ap.b + rr.y) / 2 + 4, 'if short', 'start');
+        const lane = box(fc.querySelector('.stage')).x + 200 + 26;
+        path(`M${ap.x},${ap.cy} H${lane} V${ms.cy} H${ms.x - 2}`, 'skip', 'm');
+        text(lane - 6, (ap.cy + ms.cy) / 2, 'no shortfall', 'end');
+        const gutter = fc.scrollWidth - 44;
+        FC.forEach(([, main, alts]) => (alts || []).forEach(([id, kind, to]) => {
+            const from = n(main[0]), a = box(document.getElementById('a-' + id)), mid = from.r + (a.x - from.r) / 2;
+            path(`M${from.r},${from.cy} H${mid} V${a.cy} H${a.x - 2}`, 'altp', 'ma');
+            if (kind === 'loop') { const t = n(to); path(`M${a.r},${a.cy} H${gutter} V${t.cy} H${t.r + 2}`, 'loopp', 'ml'); }
+        }));
+        const tr = n(LOOP[0]), tg = n(LOOP[1]);
+        path(`M${tr.r},${tr.cy} H${gutter + 20} V${tg.cy} H${tg.r + 2}`, 'loopp', 'ml');
+        text(gutter + 14, tg.cy - 8, 'demand changed', 'end', 'loopl');
+        svg.setAttribute('width', fc.scrollWidth);
+        svg.setAttribute('height', fc.scrollHeight);
+        const mk = (id, cls, size) => `<marker id="${id}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="${size}" markerHeight="${size}" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="${cls}"/></marker>`;
+        svg.innerHTML = `<defs>${mk('m', 'mk', 7)}${mk('ma', 'mk-alt', 6)}${mk('ml', 'mk-loop', 7)}</defs>${out.join('')}`;
+    }
+    new ResizeObserver(() => requestAnimationFrame(draw)).observe(fc);
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => requestAnimationFrame(draw));
+    draw();
+})();
+</script>
+</body>
+</html>

@@ -442,3 +442,107 @@ class HistoryTests(SignedInTestCase):
         rest = self.client.get(f"/history/{a.pk}/changes/?offset={views.RECORDS_PER_LOAD}").content.decode()
         self.assertEqual(rest.count('class="hc-id"'), 5)
         self.assertNotIn("more record", rest)
+
+
+class FilterLinkTests(SignedInTestCase):
+    """Card filters and filter links (applied in the browser by topic_table.js)."""
+
+    def test_filter_params_round_trip_format(self):
+        from core.insights import filter_param, filter_url, is_, where
+        self.assertEqual(filter_param(is_("status", "Approved", " Draft ")), "Approved|Draft")
+        self.assertEqual(filter_param(where("status", "other", ["none", "no"])), "!other:none|no")
+        self.assertEqual(filter_param(where("review_date", "by", 14)), "!by:14")
+        self.assertEqual(filter_param(where("closure_date", "filled")), "!filled")
+        url = filter_url("risk_buy", is_("decision_closure_status", "Open"), where("decision_required_date", "overdue"))
+        self.assertEqual(url, "/risk-buy/?decision_closure_status=Open&decision_required_date=%21overdue")
+        self.assertEqual(filter_url("risk_buy", focus=3, col="risk_type"), "/risk-buy/?focus=3&col=risk_type")
+
+    def test_every_card_filter_names_a_column_of_its_section(self):
+        import datetime as dt
+        import json
+        from core import insights
+        from core.topics import CONTEXT_FIELDS, get_topic
+        for label, build in insights.BUILDERS.items():
+            fields = {n for n, _ in get_topic(label).fields} | set(CONTEXT_FIELDS)
+            for c in build([], dt.date(2026, 11, 12)):
+                for raw in [c["filter"]] + [s["filter"] for s in c["segments"]]:
+                    if raw:
+                        with self.subTest(label, card=c["label"]):
+                            self.assertIn(json.loads(raw)["field"], fields)
+
+    def test_mix_segments_carry_their_filters(self):
+        from core.insights import mix
+        rows = [{"phase": "Build"}, {"phase": "odd"}, {"phase": ""}]
+        segs = mix(rows, "phase", [("Build", "Build", "a1")])
+        self.assertEqual([s[3]["op"] for s in segs], ["in", "other", "blank"])
+        self.assertEqual(segs[1][3]["v"], ["build"])
+
+    def test_section_page_renders_clickable_cards(self):
+        self.client.post(URL, {"mode": "import", "next": "/", "files": [xlsx("01.xlsx", H, ["DL-1", "Atlas", "P0"])]})
+        page = self.client.get("/capex-approval/").content.decode()
+        self.assertIn('data-filter="{&quot;field&quot;:&quot;status&quot;', page)
+        self.assertNotIn("{#", page)
+
+
+class OverviewTests(SignedInTestCase):
+    def test_empty_overview_invites_an_upload(self):
+        r = self.client.get("/")
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "No EDS records yet")
+
+    def test_overview_shows_pipeline_deadlines_programs_and_activity(self):
+        import datetime as dt
+        from django.utils import timezone
+        from risk_buy.models import RiskBuy
+        self.client.post(URL, {"mode": "import", "next": "/", "files": [
+            xlsx("01.xlsx", H, ["DL-1", "Atlas", "P0"], ["DL-2", "Borealis", "P1"])]})
+        rec = EDSRecord.objects.get(demand_line_id="DL-1")
+        late = (timezone.localdate() - dt.timedelta(days=3)).isoformat()
+        RiskBuy.objects.update_or_create(record=rec, defaults={
+            "decision_closure_status": "Open", "decision_required_date": late})
+
+        page = self.client.get("/").content.decode()
+        for text in ("Pipeline", "Deadlines", "Programs", "Recent activity", "Atlas", "Borealis",
+                     "Imported 1 file", "3 d overdue", rec.eds_record_id):
+            self.assertIn(text, page)
+        # the overdue count links to the risk-buy table filtered to exactly those records
+        self.assertIn("/risk-buy/?decision_closure_status=Open&amp;decision_required_date=%21overdue", page)
+        self.assertIn(f"/risk-buy/?focus={rec.pk}&amp;col=decision_required_date", page)
+        self.assertIn("/record-identity/?program=Atlas", page)
+
+    def test_overview_figures(self):
+        import datetime as dt
+        from django.utils import timezone
+        from core import overview, views
+        from risk_buy.models import RiskBuy
+        self.client.post(URL, {"mode": "import", "next": "/", "files": [
+            xlsx("01.xlsx", H, ["DL-1", "Atlas", "P0"], ["DL-2", "Atlas", "P1"])]})
+        today = timezone.localdate()
+        for line, days in (("DL-1", -2), ("DL-2", 10)):
+            rec = EDSRecord.objects.get(demand_line_id=line)
+            RiskBuy.objects.update_or_create(record=rec, defaults={
+                "decision_closure_status": "open", "decision_required_date": (today + dt.timedelta(days)).isoformat()})
+        ctx = overview.build(views.KIND_STYLE)
+        src = next(s for s in ctx["sources"] if s["key"] == "decisions")
+        self.assertEqual((src["overdue"], src["soon"], src["window"]), (1, 2, 2))   # cumulative
+        self.assertEqual(ctx["programs"][0]["name"], "Atlas")
+        self.assertEqual(ctx["programs"][0]["records"], 2)
+        self.assertEqual(ctx["programs"][0]["overdue"], 1)
+        identity = ctx["pipeline"][0]["sections"][0]
+        self.assertEqual(identity["with_data"], 2)
+        self.assertTrue(0 < identity["fill"] <= 100)
+
+
+class MockupTests(SignedInTestCase):
+    def test_sidebar_opens_the_full_tool_mockup_in_a_new_tab(self):
+        page = self.client.get("/history/").content.decode()
+        self.assertIn('href="/mockup/app/" target="_blank"', page)
+
+    def test_full_tool_mockup_page_loads_shared_data_then_app(self):
+        page = self.client.get("/mockup/app/").content.decode()
+        self.assertIn('id="maGroup"', page)
+        self.assertLess(page.index("core/mockup_data.js"), page.index("core/mockup_app.js"))
+
+    def test_process_mockup_still_loads(self):
+        page = self.client.get("/mockup/").content.decode()
+        self.assertLess(page.index("core/mockup_data.js"), page.index("core/mockup.js"))

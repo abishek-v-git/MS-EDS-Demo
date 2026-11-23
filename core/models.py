@@ -58,8 +58,9 @@ class Activity(models.Model):
     and labels are copied, so they still read correctly after the records are gone.
     """
 
-    IMPORT, EDIT, CREATE, RESET = "import", "edit", "create", "reset"
-    KINDS = [(IMPORT, "Import"), (EDIT, "Edit"), (CREATE, "New record"), (RESET, "Clear all data")]
+    IMPORT, EDIT, CREATE, RESET, ACTION = "import", "edit", "create", "reset", "action"
+    KINDS = [(IMPORT, "Import"), (EDIT, "Edit"), (CREATE, "New record"), (ACTION, "Workflow action"),
+             (RESET, "Clear all data")]
 
     at = models.DateTimeField(default=timezone.now, db_index=True)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
@@ -129,3 +130,74 @@ class Change(models.Model):
 
     def __str__(self):
         return f"{self.eds_record_id} {self.label}: {self.old!r} -> {self.new!r}"
+
+
+# ── Workflow ──────────────────────────────────────────────────────────────────
+# Where each EDS record is in the 9-stage flow. The rules live in core/flow.py.
+
+class RecordFlow(models.Model):
+    record = models.OneToOneField("record_identity.EDSRecord", on_delete=models.CASCADE, related_name="flow")
+    stage = models.PositiveSmallIntegerField(default=1)
+    status = models.CharField(max_length=60, default="Draft")
+    closed = models.BooleanField(default=False)
+    stopped = models.BooleanField(default=False)  # CapEx rejected: only a demand change restarts it
+    # Stage 2 runs two pieces of work in parallel
+    rack_built = models.BooleanField(default=False)
+    rack_submitted = models.BooleanField(default=False)
+    parts_confirmed = models.BooleanField(default=False)
+    # Stage 8: issued -> acknowledged -> received -> delivered
+    po_state = models.CharField(max_length=20, blank=True, default="")
+    since = models.DateTimeField(default=timezone.now)  # when the status last changed
+
+    def __str__(self):
+        return f"{self.record} · stage {self.stage} · {self.status}"
+
+
+class SupplierRequest(models.Model):
+    """One supplier asked in one feasibility round (stage 3); its award; then its alignment (stage 7)."""
+
+    REQUESTED, RESPONDED, DECLINED, CLARIFY = "Requested", "Responded", "Declined", "Clarification asked"
+
+    record = models.ForeignKey("record_identity.EDSRecord", on_delete=models.CASCADE, related_name="supplier_requests")
+    round = models.PositiveSmallIntegerField(default=1)
+    supplier = models.CharField(max_length=60)
+    quantity = models.CharField(max_length=30, blank=True, default="")
+    reply_due = models.CharField(max_length=10, blank=True, default="")
+    status = models.CharField(max_length=30, default=REQUESTED)
+    lead_time_weeks = models.CharField(max_length=10, blank=True, default="")
+    capacity = models.CharField(max_length=30, blank=True, default="")
+    price = models.CharField(max_length=30, blank=True, default="")
+    qualification_support = models.TextField(blank=True, default="")
+    note = models.TextField(blank=True, default="")  # decline reason or open question
+    selected = models.BooleanField(null=True)  # None until the round is awarded
+    allocated = models.CharField(max_length=30, blank=True, default="")
+    # Alignment / supportability (stage 7)
+    align_status = models.CharField(max_length=30, blank=True, default="")
+    align_version = models.PositiveSmallIntegerField(default=0)
+    needed_by = models.CharField(max_length=10, blank=True, default="")
+    supported_qty = models.CharField(max_length=30, blank=True, default="")
+    ship_dates = models.TextField(blank=True, default="")
+    align_lead_time = models.CharField(max_length=10, blank=True, default="")
+    constraints = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["round", "id"]
+
+    @property
+    def ref(self):
+        return f"REQ-{self.pk:06d}"
+
+    def __str__(self):
+        return f"{self.ref} {self.supplier} · {self.record}"
+
+
+class SupplierContact(models.Model):
+    """A user in the Suppliers group and the supplier company they answer for."""
+
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="supplier_contact")
+    supplier = models.CharField(max_length=60)
+
+    def __str__(self):
+        return f"{self.user} · {self.supplier}"

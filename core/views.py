@@ -82,6 +82,19 @@ def home(request):
     return redirect(get_topics()[0].url)
 
 
+@require_GET
+def workflow_mockup(request):
+    """Front-end-only mock-up of the workflow per stakeholder group (sample data in mockup.js)."""
+    return render(request, "core/mockup.html")
+
+
+@require_GET
+def workflow_mockup_app(request):
+    """Front-end-only mock-up of the whole tool as each group would use it (sample data in mockup_data.js).
+    The New record form is the tool's own (record_form), rendered here so the mock-up shows it exactly; it isn't posted."""
+    return render(request, "core/mockup_app.html", {"new_record_form": record_form(request).content.decode()})
+
+
 # ── Sign in / out ─────────────────────────────────────────────────────────────
 
 class SignInForm(AuthenticationForm):

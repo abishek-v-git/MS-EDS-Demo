@@ -1,0 +1,111 @@
+{% extends "core/base.html" %}
+{% load static %}
+
+{% block title %}Workflow mock-up · ms-eds-demo{% endblock %}
+
+{% block head %}
+<link href="{% static 'core/mockup.css' %}?v=10" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+{# Front-end only mock-up: every task, status and action below is sample data in mockup.js. Nothing is saved. #}
+<div class="page-head">
+    <div class="topic-header">
+        <div class="topic-icon"><i class="bi bi-diagram-3"></i></div>
+        <div>
+            <div class="topic-kicker">Mock-up <span class="sep">/</span> sample data, nothing is saved</div>
+            <h1 class="topic-title">Workflow by group</h1>
+        </div>
+    </div>
+    <div class="mk-switch">
+        <label for="mkGroup">Viewing as</label>
+        <select class="form-select form-select-sm" id="mkGroup" aria-describedby="mkGroupWho"></select>
+    </div>
+</div>
+
+<section class="mk-who" id="mkWho" aria-live="polite"></section>
+
+<nav class="mk-stages" id="mkStages" aria-label="Process from start to end"></nav>
+
+<ul class="nav mk-tabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="tab-work" data-mk-tab="work" type="button" role="tab" aria-controls="mkWork" aria-selected="true">
+            <i class="bi bi-inbox me-1"></i>My work <span class="mk-tab-count" id="mkTaskCount">0</span>
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tab-data" data-mk-tab="data" type="button" role="tab" aria-controls="mkData" aria-selected="false">
+            <i class="bi bi-table me-1"></i>Data
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tab-process" data-mk-tab="process" type="button" role="tab" aria-controls="mkProcess" aria-selected="false">
+            <i class="bi bi-signpost-split me-1"></i>End-to-end process
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tab-access" data-mk-tab="access" type="button" role="tab" aria-controls="mkAccess" aria-selected="false">
+            <i class="bi bi-shield-lock me-1"></i>What I can see and edit
+        </button>
+    </li>
+</ul>
+
+<section id="mkWork" class="mk-pane" role="tabpanel" aria-labelledby="tab-work"></section>
+<section id="mkData" class="mk-pane" role="tabpanel" aria-labelledby="tab-data" hidden></section>
+<section id="mkProcess" class="mk-pane" role="tabpanel" aria-labelledby="tab-process" hidden></section>
+<section id="mkAccess" class="mk-pane" role="tabpanel" aria-labelledby="tab-access" hidden></section>
+
+<!-- Action dialog: shows what the action asks for, then "does" it in the page only -->
+<div class="modal fade" id="mkModal" tabindex="-1" aria-hidden="true" aria-labelledby="mkModalTitle">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+        <form class="modal-content" id="mkForm" novalidate>
+            <div class="modal-header app-modal-header">
+                <div class="min-w-0">
+                    <h6 class="modal-title" id="mkModalTitle"></h6>
+                    <div class="mk-modal-sub" id="mkModalSub"></div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="mkModalBody"></div>
+            <div class="modal-footer justify-content-between">
+                <div class="mk-modal-left">
+                    <button type="button" class="btn btn-sm btn-link px-0" id="mkViewTable"><i class="bi bi-table me-1"></i>View in table</button>
+                    <span class="mk-modal-note"><i class="bi bi-info-circle me-1"></i>Mock-up: nothing is saved.</span>
+                    <span class="mk-enter-hint"><kbd>Enter</kbd> to confirm</span>
+                </div>
+                <div>
+                    <button type="button" class="btn btn-sm btn-ghost" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-sm btn-primary app-btn" id="mkConfirm"></button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Program view: records of one program, each as a form across every section (like the main tool's program view) -->
+<div class="modal fade" id="mkProgModal" tabindex="-1" aria-hidden="true" aria-labelledby="mkProgTitle">
+    <div class="modal-dialog modal-dialog-centered program-dialog">
+        <div class="modal-content">
+            <div class="modal-header app-modal-header">
+                <h6 class="modal-title" id="mkProgTitle"></h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0" id="mkProgBody"></div>
+        </div>
+    </div>
+</div>
+
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+    <div class="toast align-items-center text-bg-success border-0" id="mkToast" role="status">
+        <div class="d-flex">
+            <div class="toast-body" id="mkToastText"></div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'core/mockup_data.js' %}?v=10"></script>
+<script src="{% static 'core/mockup.js' %}?v=10"></script>
+{% endblock %}

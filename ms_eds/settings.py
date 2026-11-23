@@ -80,6 +80,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'core.logs.RequestContextMiddleware',  # puts the user and IP on every log line
     'core.middleware.LoginRequired',  # every page needs a signed-in user
+    'core.middleware.SupplierScope',  # supplier users only see their own requests
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]

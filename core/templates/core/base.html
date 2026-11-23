@@ -34,6 +34,15 @@
                 {% endfor %}
             </div>
             {% endfor %}
+            <div class="sb-group">
+                <div class="sb-group-label">Preview</div>
+                <a class="sb-link" href="{% url 'workflow_mockup_app' %}" target="_blank" rel="noopener"
+                   style="--tab-accent: #5b3f9e;" title="Opens the full tool mock-up in a new tab">
+                    <span class="sb-icon"><i class="bi bi-diagram-3"></i></span>
+                    <span class="sb-title">Workflow mock-up</span>
+                    <i class="bi bi-box-arrow-up-right sb-num"></i>
+                </a>
+            </div>
         </nav>
         {% if last_upload %}
         <div class="sb-foot" title="Last import">

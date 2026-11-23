@@ -1,0 +1,150 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% include "core/_head.html" %}
+    <title>EDS mock-up</title>
+    <link href="{% static 'core/app.css' %}" rel="stylesheet">
+    <link href="{% static 'core/mockup.css' %}?v=29" rel="stylesheet">
+    <link href="{% static 'core/mockup_app.css' %}?v=29" rel="stylesheet">
+</head>
+<body class="ma-body">
+{# Front-end-only mock-up of the whole tool, as each group would use it. Sample data in mockup_data.js + mockup_app.js; nothing is saved. #}
+
+<!-- Mock-up controls: not part of the tool -->
+<div class="ma-bar" role="region" aria-label="Mock-up controls">
+    <span class="ma-bar-tag" title="Sample data · nothing is saved"><i class="bi bi-easel"></i>Mock-up</span>
+    <label for="maGroup" class="ma-bar-label">Viewing as</label>
+    <select id="maGroup" class="form-select form-select-sm ma-bar-select"></select>
+    <span class="ma-bar-who" id="maBarWho"></span>
+    <div class="ma-flow" id="maFlow" role="status"></div>
+
+    <div class="ma-bar-tools">
+        <div class="dropdown" id="maTours" data-map="{% url 'workflow_mockup' %}#loops"></div>
+        <a class="ma-bar-link" href="{% url 'workflow_mockup' %}" target="_blank" rel="noopener" title="Stage-by-stage process map"><i class="bi bi-signpost-split"></i><span>Process map</span></a>
+        <button type="button" class="ma-bar-link" id="maReset" title="Start the demo again"><i class="bi bi-arrow-counterclockwise"></i><span>Reset</span></button>
+        <a class="ma-bar-link" href="{% url 'home' %}" title="Back to the real tool"><i class="bi bi-box-arrow-left"></i><span>Exit</span></a>
+    </div>
+</div>
+
+<!-- The tool: rendered by mockup_app.js (internal app or supplier portal) -->
+<div id="maApp"></div>
+
+<!-- Action dialog (internal groups) -->
+<div class="modal fade" id="mkModal" tabindex="-1" aria-hidden="true" aria-labelledby="mkModalTitle">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+        <form class="modal-content" id="mkForm" novalidate>
+            <div class="modal-header app-modal-header">
+                <div class="min-w-0">
+                    <h6 class="modal-title" id="mkModalTitle"></h6>
+                    <div class="mk-modal-sub" id="mkModalSub"></div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="mkModalBody"></div>
+            <div class="modal-footer">
+                <span class="mk-enter-hint me-auto"><kbd>Enter</kbd> to confirm</span>
+                <button type="button" class="btn btn-sm btn-ghost" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-sm btn-primary app-btn" id="mkConfirm"></button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Small dialog: new record, decline reason, PO acknowledgement … -->
+<div class="modal fade" id="maDialog" tabindex="-1" aria-hidden="true" aria-labelledby="maDialogTitle">
+    <div class="modal-dialog modal-dialog-centered">
+        <form class="modal-content" id="maDialogForm" novalidate>
+            <div class="modal-header app-modal-header">
+                <h6 class="modal-title" id="maDialogTitle"></h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="maDialogBody"></div>
+            <div class="modal-footer">
+                <span class="mk-enter-hint me-auto"><kbd>Enter</kbd> to confirm</span>
+                <button type="button" class="btn btn-sm btn-ghost" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-sm btn-primary app-btn" id="maDialogOk"></button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- The tool's own New record form (core/_record_form.html via views.record_form), shown in the program view; never posted -->
+<template id="maNewRecordTpl">{{ new_record_form|safe }}</template>
+
+<!-- Upload Excel, per group: the tool's upload dialog, limited to the columns that group fills -->
+<div class="modal fade" id="maImportModal" tabindex="-1" aria-hidden="true" aria-labelledby="maImpTitle">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header app-modal-header">
+                <div class="min-w-0">
+                    <h6 class="modal-title mb-0" id="maImpTitle"></h6>
+                    <div class="note-modal-sub" id="maImpSub"></div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="maImpBody"></div>
+            <div class="modal-footer justify-content-between">
+                <button type="button" class="btn btn-sm btn-link px-0" id="maImpTemplate"><i class="bi bi-download me-1"></i>Download your template</button>
+                <div>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary d-none" id="maImpBack"><i class="bi bi-arrow-left me-1"></i>Choose another file</button>
+                    <button type="button" class="btn btn-sm btn-primary app-btn" id="maImpCheck" disabled><i class="bi bi-search me-1"></i>Check file</button>
+                    <button type="button" class="btn btn-sm btn-primary app-btn d-none" id="maImpConfirm"><i class="bi bi-upload me-1"></i>Confirm import</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Program view (click a program name or an EDS Record ID), like the tool's -->
+<div class="modal fade" id="maProgModal" tabindex="-1" aria-hidden="true" aria-labelledby="maProgTitle">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable program-dialog">
+        <div class="modal-content">
+            <div class="modal-header app-modal-header">
+                <div>
+                    <h6 class="modal-title mb-0"><i class="bi bi-diagram-3 me-2"></i><span id="maProgTitle"></span></h6>
+                    <div class="note-modal-sub" id="maProgSub">Program view · all EDS records and their data</div>
+                </div>
+                <div class="pv-actions">
+                    <button type="button" class="pv-act" id="maPvAdd" title="Add a new EDS record to this program"><i class="bi bi-plus-lg"></i></button>
+                    <button type="button" class="pv-act" id="maPvEdit" title="Edit this record (your sections)"><i class="bi bi-pencil"></i></button>
+                    <button type="button" class="btn btn-sm btn-ghost" id="maPvCancel" hidden>Cancel</button>
+                    <button type="button" class="btn btn-sm btn-primary app-btn" id="maPvSave" hidden><i class="bi bi-check2 me-1"></i>Save</button>
+                    <span class="pv-act-sep"></span>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+            </div>
+            <div class="modal-body p-0" id="maProgBody"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Monthly profile bubble (click Total expected demand / Monthly profile in a table) -->
+<div class="month-pop" id="maMonthPop" role="dialog" aria-labelledby="maMonthPopTitle" hidden>
+    <span class="month-pop-caret" id="maMonthPopCaret"></span>
+    <div class="note-pop-head">
+        <div class="min-w-0">
+            <div class="note-pop-title" id="maMonthPopTitle"><i class="bi bi-calendar3 me-1"></i>Monthly profile</div>
+            <div class="note-pop-sub" id="maMonthPopSub"></div>
+        </div>
+        <div class="note-pop-actions">
+            <button type="button" id="maMonthPopClose" title="Close (Esc)"><i class="bi bi-x-lg"></i></button>
+        </div>
+    </div>
+    <div id="maMonthPopBody"></div>
+</div>
+
+<div class="toast-container position-fixed top-0 start-50 translate-middle-x p-3" style="margin-top: var(--ma-bar);">
+    <div class="toast align-items-center text-bg-success border-0" id="mkToast" role="status">
+        <div class="d-flex">
+            <div class="toast-body" id="mkToastText"></div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="{% static 'core/mockup_data.js' %}?v=29"></script>
+<script src="{% static 'core/mockup_app.js' %}?v=29"></script>
+</body>
+</html>
