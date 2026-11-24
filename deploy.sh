@@ -1,7 +1,7 @@
 #!/bin/bash
 
 echo "Starting deployment process..."
-APP_DIR="/home/ubuntu/MS-EDS"
+APP_DIR="/home/ubuntu/MS-EDS-Demo"
 
 cd $APP_DIR || {
     echo "There is no such a directory!! :( "
